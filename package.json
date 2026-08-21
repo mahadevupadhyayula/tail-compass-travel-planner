@@ -1,0 +1,20 @@
+{
+  "name": "tail-compass-mvp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node src/readiness.test.mjs && node server/policyExtractor.test.mjs && node src/engine/engine.test.mjs && node src/engine/itineraryOps.test.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.10"
+  }
+}
