@@ -206,8 +206,7 @@ export default function App() {
     const poll = async () => {
       try {
         const response = await fetch(`/api/generation-job?id=${encodeURIComponent(jobId)}&token=${encodeURIComponent(jobAccessToken)}`);
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Could not check itinerary progress.");
+        const result = await readApiResponse(response, "Could not check itinerary progress.");
         if (cancelled) return;
         setGenerationJob(result);
         if (!["completed", "failed", "cancelled"].includes(result.status)) timer = window.setTimeout(poll, 2500);

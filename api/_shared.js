@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { demoCatalog } from "../server/demoCatalog.mjs";
 import { uploadProfilePhoto } from "../server/profilePhotos.mjs";
 
@@ -31,6 +32,54 @@ export async function supabaseAdmin(path, { method = "GET", body, prefer } = {})
   }
   const text = await result.text();
   return text ? JSON.parse(text) : null;
+}
+
+export function hasValidJobAccess(jobId, token) {
+  const secret = process.env.JOB_STATUS_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!jobId || !token || !secret) return false;
+  const [expiresAt, supplied] = token.split(".");
+  if (!expiresAt || !supplied || Number(expiresAt) < Math.floor(Date.now() / 1000)) return false;
+  const expected = createHmac("sha256", secret).update(`${jobId}.${expiresAt}`).digest("hex");
+  const left = Buffer.from(supplied);
+  const right = Buffer.from(expected);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
+export async function createSignedStorageUrl(bucket, objectPath) {
+  const config = supabaseAdminConfig();
+  if (!config || !bucket || !objectPath) return null;
+  const encodedPath = objectPath.split("/").map(encodeURIComponent).join("/");
+  const result = await fetch(`${config.baseUrl}/storage/v1/object/sign/${encodeURIComponent(bucket)}/${encodedPath}`, {
+    method: "POST",
+    headers: { apikey: config.apiKey, Authorization: `Bearer ${config.apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ expiresIn: 600 })
+  });
+  if (!result.ok) throw new Error(`Could not sign stored file (${result.status}).`);
+  const payload = await result.json();
+  const signedPath = payload.signedURL || payload.signedUrl;
+  return signedPath?.startsWith("http") ? signedPath : `${config.baseUrl}/storage/v1${signedPath}`;
+}
+
+export async function readPrivateStorageObject(bucket, objectPath) {
+  const config = supabaseAdminConfig();
+  if (!config || !objectPath) throw new Error("Stored itinerary is unavailable.");
+  const encodedPath = objectPath.split("/").map(encodeURIComponent).join("/");
+  const result = await fetch(`${config.baseUrl}/storage/v1/object/${encodeURIComponent(bucket)}/${encodedPath}`, {
+    headers: { apikey: config.apiKey, Authorization: `Bearer ${config.apiKey}` }
+  });
+  if (!result.ok) throw new Error(`Could not retrieve stored itinerary (${result.status}).`);
+  return result;
+}
+
+export async function refreshGeneratedImageUrls(html, generatedImages) {
+  const images = Array.isArray(generatedImages) ? generatedImages.filter(item => item?.storage_path) : [];
+  if (!images.length) return html;
+  const signedUrls = await Promise.all(images.map(item => createSignedStorageUrl("profile-images", item.storage_path)));
+  let imageIndex = 0;
+  return html.replace(/(<figure\b[^>]*class=["'][^"']*\bphoto\b[^"']*["'][^>]*>[\s\S]*?<img\b[^>]*\bsrc=["'])([^"']*)(["'])/gi, (match, before, _oldUrl, quote) => {
+    const signedUrl = signedUrls[imageIndex++];
+    return signedUrl ? `${before}${signedUrl}${quote}` : match;
+  });
 }
 
 export async function saveJourney(payload) {
