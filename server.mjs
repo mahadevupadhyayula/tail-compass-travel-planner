@@ -360,10 +360,31 @@ async function loadCatalogFromSupabase() {
   }
 }
 
+async function loadRecentItineraries() {
+  if (!supabaseAdminConfig()) return [];
+  const rows = await supabaseAdmin("public_itinerary_showcases?select=id,title,route,date_label,travel_mode,pet_summary,stay_summary,published_at&is_published=eq.true&order=published_at.desc&limit=3");
+  return (rows || []).map(item => ({
+    id: item.id,
+    title: item.title,
+    route: item.route,
+    dateLabel: item.date_label,
+    travelMode: item.travel_mode,
+    petSummary: item.pet_summary,
+    staySummary: item.stay_summary
+  }));
+}
+
 http.createServer(async (request, response) => {
   const url = new URL(request.url, "http://localhost");
   if (request.method === "GET" && url.pathname === "/api/catalog") {
     return sendJson(response, 200, await loadCatalogFromSupabase());
+  }
+  if (request.method === "GET" && url.pathname === "/api/recent-itineraries") {
+    try {
+      return sendJson(response, 200, { itineraries: await loadRecentItineraries() });
+    } catch (error) {
+      return sendJson(response, 500, { error: error.message || "Could not load recent itineraries." });
+    }
   }
   if (request.method === "GET" && url.pathname === "/api/generation-job/html") {
     try {

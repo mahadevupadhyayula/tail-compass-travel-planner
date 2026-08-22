@@ -2,7 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import brandLogo from "./assets/tail-and-compass-logo.png";
 import beagleLoader from "./assets/tail-compass-beagle-loader.svg";
 import landingReference from "../Tail Compass Itinerary Mockups/01-landing-page.png";
-import evidenceReference from "../Tail Compass Itinerary Mockups/04-evidence-happy-travel-stories.png";
+import evidenceRishikesh from "./assets/evidence-rishikesh.png";
+import evidenceShimlaTrain from "./assets/evidence-shimla-train.png";
+import evidenceManali from "./assets/evidence-manali.png";
+import evidenceAlibaug from "./assets/evidence-alibaug.png";
 
 const stages = ["Meet your copilot", "Shape the journey", "Check the details", "Build the itinerary", "Review & share"];
 
@@ -58,6 +61,17 @@ function preparePhotoUpload(file) {
   });
 }
 
+async function readApiResponse(response, fallback) {
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    const text = await response.text();
+    throw new Error(response.ok ? fallback : `The server endpoint is unavailable (${response.status}). Redeploy the latest backend changes.`);
+  }
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || fallback);
+  return result;
+}
+
 function createPdf(lines) {
   const safe = value => value.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)").replace(/[^\x20-\x7E]/g, "-");
   const content = ["BT", "/F1 11 Tf", "52 780 Td", "15 TL", ...lines.flatMap((line, index) => index ? [`T* (${safe(line)}) Tj`] : [`(${safe(line)}) Tj`]), "ET"].join("\n");
@@ -77,11 +91,48 @@ function createPdf(lines) {
   return new Blob([pdf], { type: "application/pdf" });
 }
 
+function RecentItinerariesMenu() {
+  const [open, setOpen] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [state, setState] = useState({ status: "idle", items: [] });
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const controller = new AbortController();
+    setState(current => ({ ...current, status: "loading" }));
+    fetch("/api/recent-itineraries", { signal: controller.signal })
+      .then(async response => {
+        const result = await readApiResponse(response, "Could not load recent itineraries.");
+        setState({ status: "ready", items: result.itineraries || [] });
+      })
+      .catch(error => {
+        if (error.name !== "AbortError") setState({ status: "error", items: [] });
+      });
+    return () => controller.abort();
+  }, [open, attempt]);
+
+  return <div className={`recent-menu ${open ? "open" : ""}`}>
+    <button className="recent-trigger" type="button" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen(value => !value)}>Recent itineraries <span>⌄</span></button>
+    {open && <div className="recent-popover" role="dialog" aria-label="Recent itineraries">
+      <div className="recent-popover-head"><div><span>RECENT JOURNEYS</span><h2>Freshly planned</h2></div><button type="button" aria-label="Close recent itineraries" onClick={() => setOpen(false)}>×</button></div>
+      {state.status === "loading" && <p className="recent-message">Checking the latest plans…</p>}
+      {state.status === "error" && <div className="recent-message"><strong>Couldn’t load recent plans.</strong><button type="button" onClick={() => setAttempt(value => value + 1)}>Try again</button></div>}
+      {state.status === "ready" && !state.items.length && <p className="recent-message">No published itineraries yet. Curated journeys will appear here.</p>}
+      {state.items.map(item => <article className="recent-card" key={item.id}>
+        <div className="recent-route"><span>{item.travelMode || "trip"}</span><strong>{item.title}</strong></div>
+        <p>{item.route}{item.petSummary ? ` · ${item.petSummary}` : ""}</p>
+        <small>{item.dateLabel}{item.staySummary ? ` · ${item.staySummary}` : ""}</small>
+      </article>)}
+      <p className="recent-privacy">Only deliberately published summaries appear here. Traveler details and itinerary files remain private.</p>
+    </div>}
+  </div>;
+}
+
 function PublicHeader({ page, onHome, onStart, onEvidence }) {
   return <header className="public-header">
     <button className="public-brand" type="button" onClick={onHome} aria-label="Tails and Compass home"><span className="public-logo"><img src={brandLogo} alt="" /></span><span>Tails &amp; Compass</span></button>
     <nav aria-label="Main navigation"><button className={page === "landing" ? "active" : ""} type="button" onClick={onHome}>How it works</button><button className={page === "evidence" ? "active" : ""} type="button" onClick={onEvidence}>Evidence</button></nav>
-    <button className="public-start" type="button" onClick={onStart}>Plan with your pet</button>
+    <div className="public-header-actions"><RecentItinerariesMenu /><button className="public-start" type="button" onClick={onStart}>Plan with your pet</button></div>
   </header>;
 }
 
@@ -104,18 +155,18 @@ function LandingPage({ onStart, onEvidence }) {
 }
 
 const evidenceStories = [
-  { crop: "evidence-train", title: "Miso’s first train ride", quote: "Sunny windows, quiet breaks and a carrier-ready plan helped Miso settle into the rhythm of the rails.", place: "Shimla", type: "Scenic train escape" },
-  { crop: "evidence-mountain", title: "Bruno finds his mountain rhythm", quote: "Shorter walks, longer rests and a stay with garden access made the mountains feel easy.", place: "Manali", type: "Mountain getaway" },
-  { crop: "evidence-beach", title: "A weekend by the sea", quote: "A shaded schedule and pet-welcoming cafés left more time for sandy paws and sunsets.", place: "Alibaug", type: "Beach break" }
+  { image: evidenceShimlaTrain, title: "Miso’s first train ride", quote: "A quieter departure, a familiar carrier and planned platform breaks turned an uncertain rail day into a calm first journey.", place: "Shimla", type: "Rail journey", outcome: "Fewer stressful transitions" },
+  { image: evidenceManali, title: "Bruno finds his mountain rhythm", quote: "Short walks, recovery time and a stay with outdoor space made the mountains rewarding without exhausting Bruno.", place: "Manali", type: "Road getaway", outcome: "A schedule built around rest" },
+  { image: evidenceAlibaug, title: "A cooler weekend by the sea", quote: "Early walks and shaded afternoon plans kept the hottest hours quiet—and left sunset for the best shared moment.", place: "Alibaug", type: "Beach break", outcome: "Heat-aware daily planning" }
 ];
 
 function EvidencePage({ onStart, onHome }) {
   return <div className="public-page evidence-page">
     <PublicHeader page="evidence" onHome={onHome} onStart={onStart} onEvidence={() => window.scrollTo({ top: 0, behavior: "smooth" })} />
     <main>
-      <section className="evidence-intro"><div><span className="section-eyebrow">HAPPY TRAVEL STORIES</span><h1>Journeys worth wagging about</h1><p>Dummy stories showing how thoughtful preparation can turn pet travel from uncertainty into shared memories.</p><p>Each example connects a pet’s pace and needs with a suitable route, stay and daily plan.</p></div><article className="featured-story"><MockupCrop source={evidenceReference} className="evidence-featured" alt="A traveler and dog walking beside the river in Rishikesh" /><div><span>FEATURED JOURNEY</span><h2>A slower road to Rishikesh</h2><p>Rudi’s plan favored riverside walks, gentle cafés and plenty of pauses. The route flexed around his needs instead of asking him to keep up.</p><button className="outline-button" type="button" onClick={onStart}>Plan a similar trip →</button></div></article></section>
-      <section className="evidence-grid" aria-label="Example pet travel stories">{evidenceStories.map(story => <article key={story.title}><MockupCrop source={evidenceReference} className={story.crop} alt="Pet-friendly travel story" /><div><h2>{story.title}</h2><p>“{story.quote}”</p><small><span>⌖ {story.place}</span><span>△ {story.type}</span></small></div></article>)}</section>
-      <section className="evidence-facts"><span className="section-eyebrow">WHAT IMPROVES THE JOURNEY</span><div><article><strong>Clear constraints</strong><p>Size, vaccination and carrier information are considered before a route is recommended.</p></article><article><strong>Pet-paced days</strong><p>Rest, temperature, stimulation and special-care needs influence the itinerary.</p></article><article><strong>Policy-aware choices</strong><p>Transport and stay requirements are surfaced before the final plan is approved.</p></article></div></section>
+      <section className="evidence-intro"><div><span className="section-eyebrow">ILLUSTRATIVE TRAVEL STORIES</span><h1>Better trips begin before departure</h1><p>These demo journeys show what changes when a pet’s size, health, temperament and pace shape the plan from the beginning.</p><p className="evidence-disclaimer">Illustrative scenarios for the MVP—not customer testimonials or measured clinical outcomes.</p></div><article className="featured-story"><img className="evidence-photo" src={evidenceRishikesh} alt="A traveler and golden retriever walking beside the river in Rishikesh" /><div><span>FEATURED JOURNEY · ROAD</span><h2>A slower road to Rishikesh</h2><p>Rudi’s route traded one long push for a gentler arrival, with water breaks, a quiet riverside stay and walks outside the busiest hours.</p><strong className="story-outcome">Result: less rushing, more predictable rest</strong><button className="outline-button" type="button" onClick={onStart}>Plan a similar trip →</button></div></article></section>
+      <section className="evidence-grid" aria-label="Illustrative pet travel stories">{evidenceStories.map(story => <article key={story.title}><img className="evidence-photo" src={story.image} alt={`${story.title} in ${story.place}`} /><div><small className="story-kicker">{story.place} · {story.type}</small><h2>{story.title}</h2><p>{story.quote}</p><strong>{story.outcome}</strong></div></article>)}</section>
+      <section className="evidence-facts"><span className="section-eyebrow">WHAT TAILS &amp; COMPASS CHANGES</span><div><article><strong>Constraints surface early</strong><p>Size, vaccination, carrier and special-care details enter the decision before a route is shortlisted.</p></article><article><strong>The day follows the pet</strong><p>Rest windows, temperature, stimulation and walking preferences influence the itinerary—not just the destination.</p></article><article><strong>Policies become decisions</strong><p>Published transport and stay requirements are translated into clear checks before approval.</p></article></div></section>
       <section className="evidence-cta"><div><h2>Your next good story starts with a thoughtful plan.</h2><p>Tell Compass about your pet and the journey you have in mind.</p></div><button className="primary-button" type="button" onClick={onStart}>Tell us about your trip</button></section>
     </main>
   </div>;
@@ -202,8 +253,7 @@ export default function App() {
           note
         })
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Your journey could not be saved.");
+      const result = await readApiResponse(response, "Your journey could not be saved.");
       setRecordIds(current => ({ ...current, ...(result.ids || {}) }));
       if (result.ids?.ownerPhotoPath || result.ids?.petPhotoPath) {
         setTraveller(current => ({
@@ -258,7 +308,7 @@ export default function App() {
         <button className="wordmark" type="button" onClick={reset} aria-label="Tails and Compass home">
           <span className="logo-crop"><img src={brandLogo} alt="" /></span><span>Tails &amp; Compass<small>Pet travel, thoughtfully planned</small></span>
         </button>
-        <div className="header-actions"><span className="saved"><i />{saveState === "saving" ? "Saving journey…" : saveState === "supabase" ? "Journey saved to Supabase" : saveState === "local-demo" ? "Demo journey saved locally" : saveState === "error" ? "Save needs attention" : "Journey not saved yet"}</span><button className="quiet-button" type="button" onClick={reset}>Start over</button></div>
+        <div className="header-actions"><span className="saved"><i />{saveState === "saving" ? "Saving journey…" : saveState === "supabase" ? "Journey saved to Supabase" : saveState === "local-demo" ? "Demo journey saved locally" : saveState === "error" ? "Save needs attention" : "Journey not saved yet"}</span><RecentItinerariesMenu /><button className="quiet-button" type="button" onClick={reset}>Start over</button></div>
       </header>
 
       <main className="journey-shell">
