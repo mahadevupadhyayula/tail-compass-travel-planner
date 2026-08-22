@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" role="img" aria-labelledby="title desc">
+  <title id="title">Tail Compass beagle puppy loading animation</title>
+  <desc id="desc">A seated beagle puppy blinks, tilts its head and wags its tail while waiting.</desc>
+  <style>
+    :root { --ink:#3a241b; --brown:#8a4f2c; --tan:#d9914b; --cream:#fff2d8; --orange:#ef7d32; --pink:#dc8b85; }
+    * { transform-box: fill-box; }
+    .tail { transform-origin: 12% 88%; animation: wag 1s ease-in-out infinite; }
+    .head { transform-origin: 50% 88%; animation: tilt 3.8s ease-in-out infinite; }
+    .ear-l { transform-origin: 72% 12%; animation: earL 3.8s ease-in-out infinite; }
+    .ear-r { transform-origin: 28% 12%; animation: earR 3.8s ease-in-out infinite; }
+    .eye { transform-origin: center; animation: blink 4.6s ease-in-out infinite; }
+    .shadow { transform-origin:center; animation: breathe 2.2s ease-in-out infinite; }
+    .body { transform-origin:50% 100%; animation: breathe 2.2s ease-in-out infinite; }
+    .dot1,.dot2,.dot3 { animation: dots 1.2s ease-in-out infinite; }
+    .dot2 { animation-delay:.16s; } .dot3 { animation-delay:.32s; }
+    @keyframes wag { 0%,100%{transform:rotate(-14deg)} 50%{transform:rotate(18deg)} }
+    @keyframes tilt { 0%,18%,100%{transform:rotate(0)} 28%,43%{transform:rotate(-9deg)} 55%,70%{transform:rotate(9deg)} 82%{transform:rotate(0)} }
+    @keyframes earL { 0%,18%,100%{transform:rotate(0)} 28%,43%{transform:rotate(7deg)} 55%,70%{transform:rotate(-3deg)} }
+    @keyframes earR { 0%,18%,100%{transform:rotate(0)} 28%,43%{transform:rotate(3deg)} 55%,70%{transform:rotate(-7deg)} }
+    @keyframes blink { 0%,43%,47%,91%,95%,100%{transform:scaleY(1)} 45%,93%{transform:scaleY(.08)} }
+    @keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.012,.985)} }
+    @keyframes dots { 0%,60%,100%{opacity:.25;transform:translateY(0)} 30%{opacity:1;transform:translateY(-6px)} }
+    @media (prefers-reduced-motion: reduce) { * { animation:none!important; } }
+  </style>
+
+  <!-- soft ground shadow -->
+  <ellipse class="shadow" cx="320" cy="505" rx="143" ry="24" fill="#caa67a" opacity=".22"/>
+
+  <!-- wagging tail behind body -->
+  <g class="tail">
+    <path d="M424 392c58-17 91-60 62-95-15-18-38-6-26 12 13 20-9 43-50 50z" fill="var(--tan)" stroke="var(--ink)" stroke-width="10" stroke-linejoin="round"/>
+    <path d="M482 316c9-7 11-14 4-23-9-11-23-9-29 1 8 5 16 12 25 22z" fill="var(--cream)"/>
+  </g>
+
+  <!-- body -->
+  <g class="body">
+    <path d="M218 438c0-93 44-155 102-155s102 62 102 155v50H218z" fill="var(--cream)" stroke="var(--ink)" stroke-width="11" stroke-linejoin="round"/>
+    <path d="M243 353c23-55 57-70 92-63 42 8 66 42 77 87-45 14-128 6-169-24z" fill="var(--tan)"/>
+    <path d="M306 292c20-5 42 0 57 12-4 42-26 76-51 76-22 0-43-26-52-62 14-14 29-22 46-26z" fill="#fffaf0"/>
+    <!-- back paws -->
+    <ellipse cx="228" cy="472" rx="54" ry="35" fill="var(--tan)" stroke="var(--ink)" stroke-width="10"/>
+    <ellipse cx="412" cy="472" rx="54" ry="35" fill="var(--tan)" stroke="var(--ink)" stroke-width="10"/>
+    <!-- front legs -->
+    <path d="M269 381c-12 42-12 82-9 109h49l4-108" fill="var(--cream)" stroke="var(--ink)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M371 381c12 42 12 82 9 109h-49l-4-108" fill="var(--cream)" stroke="var(--ink)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M256 489h57M327 489h57" stroke="var(--ink)" stroke-width="10" stroke-linecap="round"/>
+    <path d="M273 471v13M294 471v13M346 471v13M367 471v13" stroke="#c46f45" stroke-width="5" stroke-linecap="round" opacity=".7"/>
+    <!-- orange compass collar -->
+    <path d="M259 337c37 17 84 18 122 0" fill="none" stroke="var(--orange)" stroke-width="17" stroke-linecap="round"/>
+    <circle cx="320" cy="357" r="22" fill="var(--orange)" stroke="var(--ink)" stroke-width="7"/>
+    <path d="M320 343l7 14-7 14-7-14z" fill="var(--cream)"/>
+  </g>
+
+  <!-- head and floppy ears -->
+  <g class="head">
+    <g class="ear-l">
+      <path d="M253 176c-42-28-78-5-70 44 5 31 28 68 62 82 17 7 28-8 23-27z" fill="var(--brown)" stroke="var(--ink)" stroke-width="11" stroke-linejoin="round"/>
+      <path d="M236 198c-24-13-38 3-29 30 7 22 19 39 38 49z" fill="#b96b3f" opacity=".75"/>
+    </g>
+    <g class="ear-r">
+      <path d="M387 176c42-28 78-5 70 44-5 31-28 68-62 82-17 7-28-8-23-27z" fill="var(--brown)" stroke="var(--ink)" stroke-width="11" stroke-linejoin="round"/>
+      <path d="M404 198c24-13 38 3 29 30-7 22-19 39-38 49z" fill="#b96b3f" opacity=".75"/>
+    </g>
+    <path d="M234 223c0-70 38-112 86-112s86 42 86 112c0 76-37 127-86 127s-86-51-86-127z" fill="var(--cream)" stroke="var(--ink)" stroke-width="11"/>
+    <!-- classic beagle cap and blaze -->
+    <path d="M240 198c8-56 40-87 80-87s72 31 80 87c-25-10-49-21-66-41-7-8-20-8-27 0-17 20-42 31-67 41z" fill="var(--tan)"/>
+    <path d="M320 118c16 11 23 38 21 72-1 26-8 48-21 66-13-18-20-40-21-66-2-34 5-61 21-72z" fill="#fffaf0"/>
+    <!-- eyes -->
+    <g class="eye"><ellipse cx="279" cy="229" rx="13" ry="17" fill="var(--ink)"/><circle cx="275" cy="224" r="4" fill="white"/></g>
+    <g class="eye"><ellipse cx="361" cy="229" rx="13" ry="17" fill="var(--ink)"/><circle cx="357" cy="224" r="4" fill="white"/></g>
+    <!-- cheeks -->
+    <ellipse cx="270" cy="273" rx="21" ry="10" fill="var(--pink)" opacity=".28"/>
+    <ellipse cx="370" cy="273" rx="21" ry="10" fill="var(--pink)" opacity=".28"/>
+    <!-- muzzle, nose, smile -->
+    <ellipse cx="320" cy="276" rx="50" ry="42" fill="#fffaf0" stroke="var(--ink)" stroke-width="7"/>
+    <path d="M298 261c4-19 40-19 44 0 2 12-9 21-22 21s-24-9-22-21z" fill="var(--ink)"/>
+    <path d="M320 282v10m0 0c-10 11-24 8-29 0m29 0c10 11 24 8 29 0" fill="none" stroke="var(--ink)" stroke-width="6" stroke-linecap="round"/>
+    <path d="M307 304c7 11 19 11 26 0" fill="var(--pink)" stroke="var(--ink)" stroke-width="5" stroke-linecap="round"/>
+  </g>
+
+  <!-- loading label -->
+  <text x="320" y="560" text-anchor="middle" font-family="Inter, ui-rounded, system-ui, sans-serif" font-size="24" font-weight="700" fill="var(--brown)">Sniffing out your route</text>
+  <g fill="var(--orange)">
+    <circle class="dot1" cx="292" cy="593" r="6"/><circle class="dot2" cx="320" cy="593" r="6"/><circle class="dot3" cx="348" cy="593" r="6"/>
+  </g>
+</svg>

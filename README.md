@@ -1,10 +1,40 @@
-# Tail Compass MVP
+# Tail and Compass MVP
 
 "Plan the journey. We'll look after the tail."
 
 An AI-ready pet travel copilot with a reliable, deterministic demo flow. It checks a pet against curated policy constraints, explains conflicts, recommends an available compatible option, and builds a practical itinerary.
 
 ## What is implemented
+
+### Guided AI-concierge happy path
+
+The primary UI is a five-stage, assistant-guided workflow rather than a chat box:
+
+1. Meet the traveller and pet
+2. Shape the journey and compare air, road and rail
+3. Review transport, stay and activity policy checks
+4. Review and approve a pet-paced itinerary
+5. Prepare a demo email and download the itinerary as a PDF
+
+Recommendations and policy outcomes are seeded for the prototype. The final
+approval screen is intentionally designed as the future handoff point to an
+n8n workflow. No live email or booking action occurs in demo mode.
+
+### Supabase demo catalog
+
+The UI reads its operator, stay, purpose and vaccination catalog from
+`GET /api/catalog`. Without configuration, that endpoint returns the local
+seeded demo catalog. To use Supabase:
+
+1. Create a Supabase project.
+2. Run `supabase/migrations/001_demo_catalog.sql` in the SQL editor.
+3. Run `supabase/seed.sql` in the SQL editor.
+4. Copy `.env.example` to `.env` and set `SUPABASE_URL` and
+   `SUPABASE_ANON_KEY`.
+5. Restart the local server.
+
+The database exposes read-only demo records through Row Level Security. No
+service-role key is used by the browser or required for this catalog.
 
 **The journey** — Can we travel? → How should we travel? → What could go wrong? →
 How do we fix it? → Where should we stay? → What can we do? → What do we prepare? →

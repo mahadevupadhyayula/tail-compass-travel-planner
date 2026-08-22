@@ -7,7 +7,7 @@
     "dev": "node server.mjs",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node src/readiness.test.mjs && node server/policyExtractor.test.mjs && node src/engine/engine.test.mjs && node src/engine/itineraryOps.test.mjs"
+    "test": "node src/readiness.test.mjs && node server/policyExtractor.test.mjs && node server/demoCatalog.test.mjs && node server/profilePhotos.test.mjs && node src/engine/engine.test.mjs && node src/engine/itineraryOps.test.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

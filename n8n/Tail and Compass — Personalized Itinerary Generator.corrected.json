@@ -1,0 +1,1004 @@
+{
+  "name": "Tail and Compass — Personalized Itinerary Generator (MVP corrected)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tail-and-compass-generate",
+        "responseMode": "responseNode",
+        "options": {},
+        "authentication": "headerAuth"
+      },
+      "id": "85a475a2-a5b8-4efa-8a9a-2d8d93c496ea",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        320
+      ],
+      "webhookId": "faf0d186-aec3-4a46-b723-d25816820355",
+      "notes": "Inbound trigger. No credentials required. Your application POSTs { job_id, trip_id } here after the user approves a draft itinerary.",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "RESELECT_IN_N8N",
+          "name": "Tail Compass Webhook Secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "has-job-id",
+              "leftValue": "={{ $json.body.job_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "has-trip-id",
+              "leftValue": "={{ $json.body.trip_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d1b707b9-8d86-4358-9ce9-da4eab161329",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        224,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"accepted\": true, \"job_id\": $json.body.job_id} }}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "9826ca1f-283f-4066-ad5b-217721a6fca1",
+      "name": "Respond 202 (Accepted)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        448,
+        224
+      ],
+      "notes": "Responds immediately with HTTP 202. Execution continues asynchronously after this node."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "supabase-url",
+              "name": "supabase_url",
+              "type": "string",
+              "value": "https://gwalhbubtcleiupmjvuj.supabase.co"
+            },
+            {
+              "id": "images-bucket",
+              "name": "images_bucket",
+              "type": "string",
+              "value": "profile-images"
+            },
+            {
+              "id": "pdf-bucket",
+              "name": "pdf_bucket",
+              "type": "string",
+              "value": "generated-itineraries"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "4f17614f-7bba-4351-80c1-5fa1e05858ed",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        224
+      ],
+      "notes": "Non-secret configuration. The Supabase API key itself is stored in the Supabase credential, never here."
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "generation_jobs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "keyValue": "={{ $(\"Webhook\").item.json.body.job_id }}"
+            }
+          ]
+        }
+      },
+      "id": "bdc2d5e2-ca93-4c66-bd8e-b8b9af3a0873",
+      "name": "Get Generation Job",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        896,
+        224
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "0LhZmme4ZwB5D05w",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Requires Supabase API credential (service_role key recommended for private storage + row access)."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "job-exists",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "not-processing",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "processing",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "not-completed",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "trip-matches",
+              "leftValue": "={{ $json.trip_id }}",
+              "rightValue": "={{ $(\"Webhook\").item.json.body.trip_id }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "not-cancelled",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "cancelled",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "80ec8884-371a-4bef-89cc-3510a462fd4f",
+      "name": "Job Exists & Not Duplicate",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1120,
+        224
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "generation_jobs",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $(\"Webhook\").item.json.body.job_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "processing"
+            },
+            {
+              "fieldId": "error_message",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "progress",
+              "fieldValue": "10"
+            },
+            {
+              "fieldId": "status_message",
+              "fieldValue": "Preparing your personalized itinerary"
+            }
+          ]
+        }
+      },
+      "id": "6274f2eb-131c-4eaa-8b39-c60b3b805d9d",
+      "name": "Mark Job Processing",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        128
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "0LhZmme4ZwB5D05w",
+          "name": "Supabase account"
+        }
+      },
+      "notes": "Requires Supabase API credential."
+    },
+    {
+      "parameters": {
+        "jsCode": "const job = $('Get Generation Job').first().json;\nconst snap = job.input_snapshot || {};\nconst user = snap.user || {};\nconst pet = snap.pet || {};\nconst trip = snap.trip || {};\nconst jobId = job.id || $('Webhook').first().json.body.job_id;\n\nconst style = 'Consistent warm, premium illustrated travel-journal style, cozy hand-painted look with soft warm lighting, cream and orange tones.';\n\nconst ownerPhoto = user.photo_path || '';\nconst petPhoto = pet.photo_path || '';\nlet photoStrategy = 'generic_both';\nif (ownerPhoto && petPhoto) photoStrategy = 'both_refs';\nelse if (petPhoto) photoStrategy = 'pet_ref_generic_owner';\nelse if (ownerPhoto) photoStrategy = 'owner_ref_generic_pet';\n\nconst petDesc = [pet.size_category, pet.breed, pet.pet_type].filter(Boolean).join(' ') || 'pet';\n\nconst mode = String(trip.travel_mode || '').toLowerCase();\nlet travelScene;\nif (mode === 'air') travelScene = 'the owner and their ' + petDesc + ' safely seated inside an airplane, calmly looking out through the window at the clouds';\nelse if (mode === 'rail') travelScene = 'the owner and their ' + petDesc + ' sitting beside a First AC train window, the pet appearing happy and curious';\nelse if (mode === 'road') travelScene = 'the owner and their ' + petDesc + ' inside a car, the pet safely restrained with a harness, calmly enjoying fresh air from a partially open window, no unsafe behavior';\nelse travelScene = 'the owner and their ' + petDesc + ' happily beginning their journey to ' + (trip.destination || 'the destination');\n\nfunction refNote() {\n  if (photoStrategy === 'both_refs') return ' Depict the real owner and the real pet based on provided references.';\n  if (photoStrategy === 'pet_ref_generic_owner') return ' Depict the real pet; render a generic tasteful owner.';\n  if (photoStrategy === 'owner_ref_generic_pet') return ' Depict the real owner; render a generic ' + petDesc + '.';\n  return ' Render a generic ' + petDesc + ' and a generic owner.';\n}\n\nconst image1Prompt = style + ' Scene: ' + travelScene + '. Destination context: ' + (trip.destination || '') + '.' + refNote();\n\nconst notes = String(snap.notes || '').toLowerCase();\nlet prefScene = '';\nlet prefLabel = '';\nif (notes.indexOf('walk') !== -1) { prefScene = 'the owner and their ' + petDesc + ' enjoying a long scenic walk together'; prefLabel = 'long walks'; }\nelse if (notes.indexOf('sunset') !== -1) { prefScene = 'the owner and their ' + petDesc + ' watching a beautiful golden sunset together'; prefLabel = 'sunsets'; }\nelse if (notes.indexOf('beach') !== -1) { prefScene = 'the owner and their ' + petDesc + ' relaxing on a warm sandy beach'; prefLabel = 'beaches'; }\nelse if (notes.indexOf('trail') !== -1 || notes.indexOf('nature') !== -1 || notes.indexOf('hike') !== -1) { prefScene = 'the owner and their ' + petDesc + ' exploring a lush green nature trail'; prefLabel = 'nature trails'; }\nelse if (notes.indexOf('relax') !== -1) { prefScene = 'the owner and their ' + petDesc + ' relaxing peacefully at the destination'; prefLabel = 'relaxing at the destination'; }\n\nlet scene2 = 'preference';\nif (!prefScene) { prefScene = 'the owner and their ' + petDesc + ' happily arriving at ' + (trip.destination || 'the destination'); prefLabel = 'destination arrival'; scene2 = 'destination'; }\n\nconst image2Prompt = style + ' Scene: ' + prefScene + '. Location around ' + (trip.destination || '') + '.' + refNote();\n\nconst base = 'generated/' + jobId + '/';\nfunction cap(s){ return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }\n\nreturn [\n  { json: { index: 1, scene: 'travel', scene_label: (trip.travel_mode || 'travel'), caption: 'Your journey: ' + (trip.origin || '') + ' to ' + (trip.destination || '') + ' by ' + (trip.travel_mode || 'travel'), prompt: image1Prompt, storage_path: base + 'image-travel.png', photo_strategy: photoStrategy } },\n  { json: { index: 2, scene: scene2, scene_label: prefLabel, caption: cap(prefLabel), prompt: image2Prompt, storage_path: base + 'image-preference.png', photo_strategy: photoStrategy } }\n];"
+      },
+      "id": "297057bf-3e2f-4c2b-adb0-48e254a04b74",
+      "name": "Prepare Image Plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        128
+      ],
+      "notes": "Builds up to 2 image prompts and the photo strategy. Photo logic is internal and not exposed to the end user."
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "prompt": "={{ $json.prompt }}",
+        "options": {},
+        "requestOptions": {}
+      },
+      "id": "e4f4f7d4-a495-4c1b-8849-5499e43a8b30",
+      "name": "Generate Image",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1.1,
+      "position": [
+        1792,
+        128
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "F8g9LsBQEy0VeyDT",
+          "name": "OpenAI account 4"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "Requires OpenAI API credential. Processes one image per item; on failure the item is routed to the error output and the remaining image continues."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $(\"Config\").item.json.supabase_url }}/storage/v1/object/{{ $(\"Config\").item.json.images_bucket }}/{{ $(\"Prepare Image Plan\").item.json.storage_path }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "image/png"
+            },
+            {
+              "name": "x-upsert",
+              "value": "true"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "id": "186932a0-af79-463a-a0b9-2e9ed1c343e2",
+      "name": "Upload Image to Storage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2016,
+        128
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "0LhZmme4ZwB5D05w",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "Uploads the generated image to a private Supabase Storage bucket. Authenticates with the Supabase API credential (no hardcoded keys)."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "scene",
+              "name": "scene",
+              "type": "string",
+              "value": "={{ $(\"Prepare Image Plan\").item.json.scene }}"
+            },
+            {
+              "id": "scene_label",
+              "name": "scene_label",
+              "type": "string",
+              "value": "={{ $(\"Prepare Image Plan\").item.json.scene_label }}"
+            },
+            {
+              "id": "caption",
+              "name": "caption",
+              "type": "string",
+              "value": "={{ $(\"Prepare Image Plan\").item.json.caption }}"
+            },
+            {
+              "id": "storage_path",
+              "name": "storage_path",
+              "type": "string",
+              "value": "={{ $(\"Prepare Image Plan\").item.json.storage_path }}"
+            },
+            {
+              "id": "data_uri",
+              "name": "image_data_uri",
+              "type": "string",
+              "value": "=data:image/png;base64,{{ $(\"Generate Image\").item.binary.data.data }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "23896e61-a328-425c-a517-29c4c4432bd3",
+      "name": "Record Image Result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2240,
+        128
+      ],
+      "notes": "Only successful uploads reach this node. Captures storage path, scene, caption and an inline data URI used to embed the image in the PDF."
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst images = items\n  .filter(it => it.json && it.json.image_data_uri)\n  .map(it => ({\n    scene: it.json.scene,\n    scene_label: it.json.scene_label,\n    caption: it.json.caption,\n    storage_path: it.json.storage_path,\n    image_data_uri: it.json.image_data_uri,\n  }));\nreturn [{ json: { images } }];"
+      },
+      "id": "6efecbdc-4960-4128-bbec-b848cded9206",
+      "name": "Aggregate Images",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2464,
+        128
+      ],
+      "notes": "Collects the successful images (0, 1 or 2). The workflow continues even if every image failed."
+    },
+    {
+      "parameters": {
+        "jsCode": "const job = $('Get Generation Job').first().json;\nconst snap = job.input_snapshot || {};\nconst user = snap.user || {};\nconst pet = snap.pet || {};\nconst trip = snap.trip || {};\nconst itinerary = snap.itinerary || {};\nconst days = Array.isArray(itinerary.days) ? itinerary.days : [];\nconst images = ($('Aggregate Images').first().json.images) || [];\n\nfunction esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }\nfunction imgFor(scene){\n  const found = images.find(i => i.scene === scene);\n  if (!found || !found.image_data_uri) return '';\n  return '<figure class=\"photo\"><img src=\"' + found.image_data_uri + '\" alt=\"' + esc(found.caption) + '\"/><figcaption>' + esc(found.caption) + '</figcaption></figure>';\n}\nconst prefImage = images.find(i => i.scene === 'preference' || i.scene === 'destination');\nconst prefImageHtml = (prefImage && prefImage.image_data_uri) ? '<figure class=\"photo\"><img src=\"' + prefImage.image_data_uri + '\" alt=\"' + esc(prefImage.caption) + '\"/><figcaption>' + esc(prefImage.caption) + '</figcaption></figure>' : '';\n\nlet daysHtml = '';\nif (days.length === 0) {\n  daysHtml = '<p class=\"muted\">A detailed day-by-day plan will appear here.</p>';\n} else {\n  for (let d = 0; d < days.length; d++) {\n    const day = days[d] || {};\n    const acts = Array.isArray(day.items) ? day.items : [];\n    let actsHtml = '';\n    for (let a = 0; a < acts.length; a++) { actsHtml += '<li>' + esc(acts[a]) + '</li>'; }\n    daysHtml += '<div class=\"day\"><h3>Day ' + esc(day.day || (d + 1)) + ': ' + esc(day.title || '') + '</h3><ul>' + actsHtml + '</ul></div>';\n    if (d === 0 && prefImageHtml) { daysHtml += prefImageHtml; }\n  }\n}\n\nconst parts = [];\nparts.push('<!DOCTYPE html><html><head><meta charset=\"utf-8\"/>');\nparts.push('<style>');\nparts.push('body{font-family:Georgia,\"Times New Roman\",serif;color:#4a3527;background:#fbf3e7;margin:0;padding:32px;}');\nparts.push('h1{color:#c8641a;font-size:34px;margin:0 0 4px;}');\nparts.push('h2{color:#8a5a2b;border-bottom:2px solid #e6c9a3;padding-bottom:6px;margin-top:28px;}');\nparts.push('h3{color:#a85e1c;margin-bottom:4px;}');\nparts.push('.tagline{color:#8a5a2b;font-style:italic;margin-bottom:18px;}');\nparts.push('.card{background:#fff8ef;border:1px solid #e6c9a3;border-radius:10px;padding:16px 20px;margin:12px 0;}');\nparts.push('.grid{display:flex;gap:16px;flex-wrap:wrap;}');\nparts.push('.grid .card{flex:1;min-width:220px;}');\nparts.push('.photo{margin:16px 0;text-align:center;}');\nparts.push('.photo img{max-width:100%;border-radius:10px;border:3px solid #e6c9a3;}');\nparts.push('figcaption{color:#8a5a2b;font-style:italic;font-size:13px;margin-top:6px;}');\nparts.push('.muted{color:#9b8b78;}');\nparts.push('.notice{background:#fdeeda;border-left:5px solid #c8641a;padding:12px 16px;border-radius:6px;margin-top:20px;font-size:13px;}');\nparts.push('ul{margin:6px 0 0 18px;}');\nparts.push('</style></head><body>');\n\nparts.push('<h1>Tail &amp; Compass</h1>');\nparts.push('<div class=\"tagline\">Your personalized pet-friendly travel itinerary</div>');\n\nparts.push(imgFor('travel'));\n\nparts.push('<h2>Trip Summary</h2>');\nparts.push('<div class=\"card\"><strong>' + esc(trip.origin || '') + '</strong> &rarr; <strong>' + esc(trip.destination || '') + '</strong><br/>');\nparts.push('Dates: ' + esc(trip.start_date || '') + ' to ' + esc(trip.end_date || '') + '<br/>');\nparts.push('Purpose: ' + esc(trip.purpose || '') + '</div>');\n\nparts.push('<div class=\"grid\">');\nparts.push('<div class=\"card\"><h3>Traveler</h3>' + esc(user.name || 'Guest') + '</div>');\nparts.push('<div class=\"card\"><h3>Pet</h3>' + esc(pet.name || '') + ' &middot; ' + esc([pet.size_category, pet.breed, pet.pet_type].filter(Boolean).join(' ')) + '<br/>Care profile: ' + esc(pet.care_profile || 'standard') + '</div>');\nparts.push('</div>');\n\nparts.push('<h2>Travel Mode &amp; Stay</h2>');\nparts.push('<div class=\"card\">Travel mode: <strong>' + esc(trip.travel_mode || '') + '</strong><br/>Selected stay: <strong>' + esc(trip.stay_name || trip.stay_option_id || 'Selected pet-friendly stay') + '</strong></div>');\n\nparts.push('<h2>Day-by-Day Itinerary</h2>');\nparts.push(daysHtml);\n\nparts.push('<h2>Your Notes</h2>');\nparts.push('<div class=\"card\">' + esc(snap.notes || 'No additional notes provided.') + '</div>');\n\nparts.push('<div class=\"notice\"><strong>Policy verification reminder:</strong> Pet travel and stay policies vary by operator and can change. Please reconfirm carrier, accommodation and destination pet policies before you travel.</div>');\nparts.push('<div class=\"notice\"><strong>Disclaimer:</strong> Availability and operator policies must be reconfirmed before booking. This itinerary is a personalized suggestion, not a confirmed reservation.</div>');\n\nparts.push('</body></html>');\n\nreturn [{ json: { html: parts.join('') } }];"
+      },
+      "id": "e0f00594-8871-4f90-9eb7-93f73bd8163b",
+      "name": "Build Itinerary HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2688,
+        128
+      ],
+      "notes": "Builds the itinerary HTML with a cream/brown/orange style. Generated images are embedded near the relevant sections. The image model is never asked to build the PDF layout."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.pdfshift.io/v3/convert/pdf",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { source: $json.html } }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "32773bde-d861-4fed-ba09-908ff9313ba5",
+      "name": "HTML to PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2912,
+        128
+      ],
+      "onError": "continueErrorOutput",
+      "notes": "Placeholder HTML-to-PDF service. Configure the endpoint (and any auth credential) later. Gotenberg users: switch to multipart/form-data with an index.html file field. Returns the PDF as binary \"data\"."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $(\"Config\").item.json.supabase_url }}/storage/v1/object/{{ $(\"Config\").item.json.pdf_bucket }}/generated/{{ $(\"Webhook\").item.json.body.job_id }}/itinerary.pdf",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/pdf"
+            },
+            {
+              "name": "x-upsert",
+              "value": "true"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "data",
+        "options": {}
+      },
+      "id": "ec895f84-6862-42fa-b664-3721145ec006",
+      "name": "Upload PDF to Storage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3136,
+        48
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "0LhZmme4ZwB5D05w",
+          "name": "Supabase account"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "notes": "Uploads the PDF to a private Supabase Storage bucket using the Supabase API credential."
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "generation_jobs",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $(\"Webhook\").item.json.body.job_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "completed"
+            },
+            {
+              "fieldId": "generated_images",
+              "fieldValue": "={{ $(\"Aggregate Images\").first().json.images.map(i => ({ scene: i.scene, storage_path: i.storage_path, caption: i.caption })) }}"
+            },
+            {
+              "fieldId": "pdf_path",
+              "fieldValue": "=generated/{{ $(\"Webhook\").item.json.body.job_id }}/itinerary.pdf"
+            },
+            {
+              "fieldId": "error_message",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "completed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "progress",
+              "fieldValue": "100"
+            },
+            {
+              "fieldId": "status_message",
+              "fieldValue": "Your personalized itinerary is ready"
+            }
+          ]
+        }
+      },
+      "id": "57c2a79c-66fa-4c69-b096-17d5cefee66d",
+      "name": "Mark Job Completed",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3360,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "0LhZmme4ZwB5D05w",
+          "name": "Supabase account"
+        }
+      },
+      "notes": "Final success update. The frontend polls this row and stops its waiting animation when status becomes \"completed\"."
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "generation_jobs",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $(\"Webhook\").item.json.body.job_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "failed"
+            },
+            {
+              "fieldId": "error_message",
+              "fieldValue": "We could not generate your itinerary PDF. Please try again."
+            },
+            {
+              "fieldId": "progress",
+              "fieldValue": "0"
+            },
+            {
+              "fieldId": "status_message",
+              "fieldValue": "Itinerary generation needs another try"
+            }
+          ]
+        }
+      },
+      "id": "0417f6e1-0b94-42ef-a33e-a07a5ad90a7f",
+      "name": "Mark Job Failed",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3360,
+        224
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "0LhZmme4ZwB5D05w",
+          "name": "Supabase account"
+        }
+      },
+      "notes": "Error branch. Writes a short, user-safe message only. Never stores API keys, signed URLs, stack traces or raw provider responses."
+    },
+    {
+      "parameters": {},
+      "id": "04a0320a-2ee7-49d8-8785-b34c988118cb",
+      "name": "Stop: Missing or Duplicate",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        320
+      ],
+      "notes": "Reached when the job row does not exist, or is already processing/completed. Prevents duplicate images/PDFs."
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"error\": \"Missing required fields: both job_id and trip_id are required.\"} }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "ba672589-1fbd-4cb5-b180-da79ca11a6a0",
+      "name": "Respond 400 (Bad Request)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        448,
+        416
+      ]
+    },
+    {
+      "name": "Mark Images Generating",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ],
+      "parameters": {
+        "operation": "update",
+        "tableId": "generation_jobs",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $(\"Webhook\").item.json.body.job_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "generating_images"
+            },
+            {
+              "fieldId": "progress",
+              "fieldValue": "35"
+            },
+            {
+              "fieldId": "status_message",
+              "fieldValue": "Creating journey artwork"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "0LhZmme4ZwB5D05w",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "name": "Mark Itinerary Rendering",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1800,
+        300
+      ],
+      "parameters": {
+        "operation": "update",
+        "tableId": "generation_jobs",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $(\"Webhook\").item.json.body.job_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "rendering_pdf"
+            },
+            {
+              "fieldId": "progress",
+              "fieldValue": "75"
+            },
+            {
+              "fieldId": "status_message",
+              "fieldValue": "Designing your PDF"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "supabaseApi": {
+          "id": "0LhZmme4ZwB5D05w",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "name": "Generic Image Fallback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1350,
+        500
+      ],
+      "parameters": {
+        "jsCode": "const plan = $('Prepare Image Plan').item.json;\nconst mode = String($('Get Generation Job').first().json.input_snapshot?.trip?.travel_mode || 'travel');\nconst pet = String($('Get Generation Job').first().json.input_snapshot?.pet?.pet_type || 'pet');\nconst title = encodeURIComponent('Tail & Compass');\nconst subtitle = encodeURIComponent('A happy ' + pet + ' ' + mode + ' journey');\nconst svg = '<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1200\" height=\"700\"><rect width=\"1200\" height=\"700\" fill=\"#fff4e6\"/><circle cx=\"600\" cy=\"275\" r=\"145\" fill=\"#ed7b19\"/><text x=\"600\" y=\"305\" text-anchor=\"middle\" font-size=\"72\" fill=\"#4a2412\">' + pet.charAt(0).toUpperCase() + '</text><text x=\"600\" y=\"505\" text-anchor=\"middle\" font-family=\"Georgia\" font-size=\"52\" fill=\"#4a2412\">' + decodeURIComponent(title) + '</text><text x=\"600\" y=\"570\" text-anchor=\"middle\" font-family=\"Arial\" font-size=\"28\" fill=\"#8a5a2b\">' + decodeURIComponent(subtitle) + '</text></svg>';\nreturn [{ json: { scene: plan.scene, scene_label: plan.scene_label, caption: plan.caption, storage_path: null, image_data_uri: 'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64'), used_fallback: true } }];"
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Respond 202 (Accepted)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 400 (Bad Request)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond 202 (Accepted)": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Get Generation Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Generation Job": {
+      "main": [
+        [
+          {
+            "node": "Job Exists & Not Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job Exists & Not Duplicate": {
+      "main": [
+        [
+          {
+            "node": "Mark Job Processing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stop: Missing or Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Job Processing": {
+      "main": [
+        [
+          {
+            "node": "Mark Images Generating",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Image Plan": {
+      "main": [
+        [
+          {
+            "node": "Generate Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Image": {
+      "main": [
+        [
+          {
+            "node": "Upload Image to Storage",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generic Image Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Image to Storage": {
+      "main": [
+        [
+          {
+            "node": "Record Image Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generic Image Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Image Result": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Images": {
+      "main": [
+        [
+          {
+            "node": "Mark Itinerary Rendering",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Itinerary HTML": {
+      "main": [
+        [
+          {
+            "node": "HTML to PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML to PDF": {
+      "main": [
+        [
+          {
+            "node": "Upload PDF to Storage",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Job Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload PDF to Storage": {
+      "main": [
+        [
+          {
+            "node": "Mark Job Completed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Job Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Images Generating": {
+      "main": [
+        [
+          {
+            "node": "Prepare Image Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generic Image Fallback": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Itinerary Rendering": {
+      "main": [
+        [
+          {
+            "node": "Build Itinerary HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a327a3fe-989f-4b25-98e0-50aa89346445",
+  "meta": {
+    "instanceId": "db36610bd4729c394864d4f6eccf1597dd17f5c2a939d4e25d21dcd30e03dd16"
+  },
+  "nodeGroups": [],
+  "id": "YvAQYoVgFVf7gMKX",
+  "tags": []
+}
